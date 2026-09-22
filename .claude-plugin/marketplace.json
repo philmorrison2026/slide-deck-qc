@@ -1,0 +1,13 @@
+{
+  "name": "syndeio",
+  "owner": {
+    "name": "Syndeio"
+  },
+  "plugins": [
+    {
+      "name": "slide-deck-qc",
+      "source": "./plugins/slide-deck-qc",
+      "description": "PowerPoint quality-control skill for Syndeio"
+    }
+  ]
+}
