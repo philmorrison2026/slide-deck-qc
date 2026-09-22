@@ -13,11 +13,14 @@ input.
 
 import argparse
 import copy
+import os
 import re
 import sys
 
 from pptx import Presentation
 from pptx.util import Inches
+
+import inject_master
 
 EMU = 914400.0
 FOOTER_LEFT, FOOTER_TOP = 7.97, 6.74
@@ -33,6 +36,19 @@ INHERITED = {None, "", "+mn-lt", "+mj-lt"}
 DIVIDER_HINTS = ("transition", "divider", "section")
 
 XFRM_RE = re.compile(r"<a:xfrm[^>]*>(.*?)</a:xfrm>", re.S)
+
+SYNDEIO_LAYOUT_NAMES = {
+    "EXTERNAL - Title Slide", "INTERNAL - Transition", "Title and Content",
+}
+THEME_TEMPLATE = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..", "assets", "Syndeio_Theme_Template.pptx"))
+THEME_MASTER_PART = "ppt/slideMasters/slideMaster2.xml"
+
+
+def has_syndeio_master(prs):
+    return any(SYNDEIO_LAYOUT_NAMES <= {lay.name for lay in m.slide_layouts}
+               for m in prs.slide_masters)
 
 
 def inches(v):
@@ -155,13 +171,30 @@ def main():
     want = (lambda k: k in a.only) if a.only else (lambda k: k not in a.skip)
     footer_text = FOOTER_CONF if a.footer == "confidential" else FOOTER_PLAIN
 
-    prs = Presentation(a.deck)
-    total = len(prs.slides)
-    W, H = inches(prs.slide_width), inches(prs.slide_height)
     changes = []
 
     def log(slide, kind, msg):
         changes.append((slide, kind, msg))
+
+    # Inject the Syndeio master first, if it's missing and not skipped, so
+    # the rest of the pass runs on top of it and there is only one final
+    # save. inject_master.py works on the raw zip, not through python-pptx,
+    # so it has to happen before the deck is loaded for everything else.
+    deck_path = a.deck
+    injected_tmp = None
+    if want("no_syndeio_master") and not has_syndeio_master(
+            Presentation(a.deck)):
+        injected_tmp = a.out + ".master-tmp.pptx"
+        inject_master.inject(THEME_TEMPLATE, THEME_MASTER_PART,
+                              a.deck, injected_tmp)
+        deck_path = injected_tmp
+        log(None, "no_syndeio_master",
+            "Added the Syndeio master (9 layouts). Existing slides are "
+            "not restyled.")
+
+    prs = Presentation(deck_path)
+    total = len(prs.slides)
+    W, H = inches(prs.slide_width), inches(prs.slide_height)
 
     foot_tpl, num_tpl = find_templates(prs, H)
 
@@ -345,6 +378,9 @@ def main():
             log(idx, "pagenum_missing", "Added page-number field")
 
     prs.save(a.out)
+
+    if injected_tmp:
+        os.remove(injected_tmp)
 
     if a.log:
         with open(a.log, "w") as f:

@@ -54,6 +54,10 @@ DIVIDER_HINTS = ("transition", "divider", "section")
 
 XFRM_RE = re.compile(r"<a:xfrm[^>]*>(.*?)</a:xfrm>", re.S)
 
+SYNDEIO_LAYOUT_NAMES = {
+    "EXTERNAL - Title Slide", "INTERNAL - Transition", "Title and Content",
+}
+
 
 # ---------------------------------------------------------------- helpers
 def inches(v):
@@ -150,6 +154,32 @@ def audit(path):
                       % (W, H),
             "action": "Resizing changes every layout. Rebuild from the "
                       "template instead.",
+        })
+
+    # masters / layouts -- SlideMaster/SlideLayout aren't hashable, so key
+    # uniqueness off their part identity instead.
+    masters = list(prs.slide_masters)
+    all_layouts = [lay for m in masters for lay in m.slide_layouts]
+    used_masters = {id(s.slide_layout.slide_master.part) for s in prs.slides}
+    used_layouts = {id(s.slide_layout.part) for s in prs.slides}
+    info["masters"] = {
+        "masters_total": len(masters),
+        "masters_used": len(used_masters),
+        "layouts_total": len(all_layouts),
+        "layouts_used": len(used_layouts),
+    }
+
+    has_syndeio_master = any(
+        SYNDEIO_LAYOUT_NAMES <= {lay.name for lay in m.slide_layouts}
+        for m in masters)
+    if not has_syndeio_master:
+        fix.append({
+            "kind": "no_syndeio_master",
+            "slide": None,
+            "detail": "Deck has no Syndeio theme, so New Slide offers "
+                      "generic Office layouts.",
+            "action": "Add the Syndeio master (9 layouts). Existing "
+                      "slides are not restyled.",
         })
 
     # metadata

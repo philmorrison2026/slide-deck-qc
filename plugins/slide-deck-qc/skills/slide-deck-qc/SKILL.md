@@ -108,6 +108,33 @@ question is asked.
 | `text_overhang` | Pulls a text box back inside the slide edge |
 | `empty_box` | Deletes genuinely empty text boxes |
 | `whitespace` | Trailing spaces and doubled spaces between words |
+| `no_syndeio_master` | Adds the Syndeio master (9 layouts) — see below |
+
+## Adding the Syndeio theme
+
+Triggers when none of the deck's slide masters carry the Syndeio
+layouts — checked by looking for a master whose layouts include
+`EXTERNAL - Title Slide`, `INTERNAL - Transition`, and `Title and
+Content`. `audit.py` reports this as a `no_syndeio_master` fix, so it
+shows up in the numbered list like any other fix and the user sees it
+before saying "go". `--skip no_syndeio_master` turns it off like any
+other fix kind.
+
+It runs as part of the normal fix pass, and first — `apply_fixes.py`
+injects the master before touching anything else, then every other fix
+applies on top of that single result. Under the hood:
+
+```bash
+python scripts/inject_master.py assets/Syndeio_Theme_Template.pptx \
+    ppt/slideMasters/slideMaster2.xml deck.pptx deck-with-master.pptx
+```
+
+Tell the user plainly: their existing slides stay exactly as they are —
+nothing on them changes. New Slide in PowerPoint will now offer the 9
+Syndeio layouts alongside whatever was already there. Restyling the
+slides that already exist is a separate, slide-by-slide job that can
+break content (text boxes moving, charts resizing) — this skill doesn't
+do that; offer it only as a distinct follow-up if the user asks.
 
 ## What only ever gets recommended
 
@@ -153,6 +180,13 @@ on slides 2 and 20 of the Innoviva board deck; slides 8 and 10 were
 fine because they already carried their own size. Always move shapes
 through `move_shape()`, which reads the size before moving and writes
 it back, never by setting `.left`/`.top` directly.
+
+**Masters and layouts share one global ID namespace.** A new
+`<p:sldMasterId>` has to be higher than every existing master id *and*
+every existing layout id in the whole package, not just the other
+masters — `inject_master.py` scans every master's `<p:sldLayoutId>`
+entries as well before picking one. Get this wrong and PowerPoint
+doesn't warn; it just refuses to open the file.
 
 ## Verify before declaring success
 
