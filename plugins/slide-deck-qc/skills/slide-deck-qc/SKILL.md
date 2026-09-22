@@ -212,6 +212,8 @@ Measured from three reference decks. Full detail in
 - No page number on the title slide, section dividers, or the back cover.
   Numbers are auto-fields, so the remaining slides stay correct on their own
 - Aptos for body, Aptos Display for headings
-- Palette: navy `090446`, purple `884CE0`, orange `FC3702`,
-  grey `6A6A72`, white `FFFFFF`
+- Palette (official brand colors, not measured): navy `090446`,
+  purple `884CE0`, light orange `FF8519`, blue `3288E5`,
+  orange-red `FC3702`, blue-grey `838CAD`, light grey `DFE0E5`,
+  white `FFFFFF`, black `000000`
 - 12pt floor for body text; smaller is accepted inside charts and tables

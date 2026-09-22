@@ -80,12 +80,19 @@ overhang on slides 15, 21, 22 and 23.
 
 ## Palette
 
+The official Syndeio brand palette. Unlike the rest of this document,
+these are not measured from decks — they're the values Syndeio has
+defined as correct.
+
 | Hex | Name |
 |---|---|
-| `090446` | navy (primary) |
+| `090446` | navy |
 | `884CE0` | purple |
-| `FC3702` | orange (accent) |
-| `6A6A72` | grey |
+| `FF8519` | light orange |
+| `3288E5` | blue |
+| `FC3702` | orange-red |
+| `838CAD` | blue-grey |
+| `DFE0E5` | light grey |
 | `FFFFFF` | white |
 | `000000` | black |
 
