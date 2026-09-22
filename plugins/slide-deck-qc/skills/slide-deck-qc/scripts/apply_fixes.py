@@ -32,9 +32,40 @@ ALLOWED_FONTS = {"Aptos", "Aptos Display"}
 INHERITED = {None, "", "+mn-lt", "+mj-lt"}
 DIVIDER_HINTS = ("transition", "divider", "section")
 
+XFRM_RE = re.compile(r"<a:xfrm[^>]*>(.*?)</a:xfrm>", re.S)
+
 
 def inches(v):
     return None if v is None else v / EMU
+
+
+def xfrm_off_no_ext(sh):
+    """True if the shape's own <a:xfrm> has <a:off> but no <a:ext> -- the
+    state that makes PowerPoint render it at zero width."""
+    try:
+        xml = sh._element.xml
+    except Exception:
+        return False
+    m = XFRM_RE.search(xml)
+    return bool(m) and "<a:off" in m.group(1) and "<a:ext" not in m.group(1)
+
+
+def move_shape(sh, left, top, width=None, height=None):
+    """Move a shape and always (re)write its width/height, so python-pptx
+    always emits <a:ext>. A placeholder that inherits its size from the
+    layout only reports that size while its <a:xfrm> is still absent --
+    setting left/top alone adds an <a:off> with no <a:ext>, and PowerPoint
+    then treats the shape as zero-width. Read the size before moving,
+    while it can still fall back to the inherited value."""
+    if width is None:
+        width = sh.width
+    if height is None:
+        height = sh.height
+    sh.left, sh.top = Inches(left), Inches(top)
+    if width is not None:
+        sh.width = width
+    if height is not None:
+        sh.height = height
 
 
 def walk(shapes, depth=0):
@@ -162,6 +193,21 @@ def main():
             except Exception:
                 l = t = w = h = None
 
+            # ---- position with no size (collapses in PowerPoint) --------
+            if (want("xfrm_no_size") and sh.is_placeholder
+                    and xfrm_off_no_ext(sh)):
+                try:
+                    layout_ph = slide.slide_layout.placeholders[
+                        sh.placeholder_format.idx]
+                    lw, lh = layout_ph.width, layout_ph.height
+                except Exception:
+                    lw = lh = None
+                if lw and lh:
+                    sh.width, sh.height = lw, lh
+                    log(idx, "xfrm_no_size",
+                        "Restored size %.2f x %.2f in from the layout "
+                        "placeholder" % (inches(lw), inches(lh)))
+
             # ---- footer ------------------------------------------------
             if is_footer(sh, H):
                 has_foot = True
@@ -173,7 +219,7 @@ def main():
                 if want("footer_pos") and l is not None and (
                         abs(l - FOOTER_LEFT) > POS_TOL
                         or abs(t - FOOTER_TOP) > POS_TOL):
-                    sh.left, sh.top = Inches(FOOTER_LEFT), Inches(FOOTER_TOP)
+                    move_shape(sh, FOOTER_LEFT, FOOTER_TOP)
                     log(idx, "footer_pos",
                         "Footer %.2f/%.2f -> %.2f/%.2f"
                         % (l, t, FOOTER_LEFT, FOOTER_TOP))
@@ -190,7 +236,7 @@ def main():
                 if want("pagenum_pos") and l is not None and (
                         abs(l - PAGENUM_LEFT) > POS_TOL
                         or abs(t - PAGENUM_TOP) > POS_TOL):
-                    sh.left, sh.top = Inches(PAGENUM_LEFT), Inches(PAGENUM_TOP)
+                    move_shape(sh, PAGENUM_LEFT, PAGENUM_TOP)
                     log(idx, "pagenum_pos",
                         "Page number %.2f/%.2f -> %.2f/%.2f"
                         % (l, t, PAGENUM_LEFT, PAGENUM_TOP))
@@ -270,7 +316,7 @@ def main():
                             and "TITLE" in str(sh.placeholder_format.type)
                             and (abs(l - dom[0]) > POS_TOL
                                  or abs(t - dom[1]) > POS_TOL)):
-                        sh.left, sh.top = Inches(dom[0]), Inches(dom[1])
+                        move_shape(sh, dom[0], dom[1])
                         log(idx, "title_drift",
                             "Title %.2f/%.2f -> %.2f/%.2f"
                             % (l, t, dom[0], dom[1]))
@@ -283,8 +329,8 @@ def main():
             new = clone_onto(slide, foot_tpl)
             for sh in slide.shapes:
                 if sh._element is new:
-                    sh.left, sh.top = Inches(FOOTER_LEFT), Inches(FOOTER_TOP)
-                    sh.width, sh.height = foot_tpl.width, foot_tpl.height
+                    move_shape(sh, FOOTER_LEFT, FOOTER_TOP,
+                               width=foot_tpl.width, height=foot_tpl.height)
                     if sh.text_frame.text.strip() != footer_text:
                         set_text_keep_format(sh, footer_text)
             log(idx, "footer_missing", "Added footer")
@@ -294,8 +340,8 @@ def main():
             new = clone_onto(slide, num_tpl)
             for sh in slide.shapes:
                 if sh._element is new:
-                    sh.left, sh.top = Inches(PAGENUM_LEFT), Inches(PAGENUM_TOP)
-                    sh.width, sh.height = num_tpl.width, num_tpl.height
+                    move_shape(sh, PAGENUM_LEFT, PAGENUM_TOP,
+                               width=num_tpl.width, height=num_tpl.height)
             log(idx, "pagenum_missing", "Added page-number field")
 
     prs.save(a.out)

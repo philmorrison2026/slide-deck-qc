@@ -52,10 +52,23 @@ NEAR_MISS_DIST = 55.0
 
 DIVIDER_HINTS = ("transition", "divider", "section")
 
+XFRM_RE = re.compile(r"<a:xfrm[^>]*>(.*?)</a:xfrm>", re.S)
+
 
 # ---------------------------------------------------------------- helpers
 def inches(v):
     return None if v is None else v / EMU
+
+
+def xfrm_off_no_ext(sh):
+    """True if the shape's own <a:xfrm> has <a:off> but no <a:ext> -- the
+    state that makes PowerPoint render it at zero width."""
+    try:
+        xml = sh._element.xml
+    except Exception:
+        return False
+    m = XFRM_RE.search(xml)
+    return bool(m) and "<a:off" in m.group(1) and "<a:ext" not in m.group(1)
 
 
 def hex_to_rgb(h):
@@ -223,6 +236,17 @@ def audit(path):
                 w, h = inches(sh.width), inches(sh.height)
             except Exception:
                 l = t = w = h = None
+
+            # ---- position with no size --------------------------------
+            if xfrm_off_no_ext(sh):
+                fix.append({
+                    "kind": "xfrm_no_size",
+                    "slide": idx,
+                    "detail": "Shape has a position but no size; it will "
+                              "collapse in PowerPoint.",
+                    "action": "Copy the size from the matching layout "
+                              "placeholder.",
+                })
 
             # ---- footer / page number -------------------------------
             if sh.has_text_frame and t is not None and t > H - 1.0:

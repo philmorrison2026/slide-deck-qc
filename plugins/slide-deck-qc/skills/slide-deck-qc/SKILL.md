@@ -144,10 +144,20 @@ If one turns up mid-deck without a footer, ask rather than guess.
 **Slide size is not fixable.** A deck that is not 13.33 × 7.5 needs
 rebuilding from the template. Say so; do not resize.
 
+**Moving a shape can erase its size.** A placeholder that inherits its
+size from the layout only reports that width and height while its
+`<a:xfrm>` is still absent. Setting `.left`/`.top` alone adds an
+`<a:off>` with no `<a:ext>`, and PowerPoint then treats the shape as
+zero-width — the text renders one letter per line. This hit the title
+on slides 2 and 20 of the Innoviva board deck; slides 8 and 10 were
+fine because they already carried their own size. Always move shapes
+through `move_shape()`, which reads the size before moving and writes
+it back, never by setting `.left`/`.top` directly.
+
 ## Verify before declaring success
 
 Always run `validate.py`, always re-run the audit, and render any slide
-where something was added or resized:
+where something was added, moved, or resized:
 
 ```bash
 python scripts/office/soffice.py --headless --convert-to pdf DeckName-QC.pptx
