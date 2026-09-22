@@ -3,3 +3,4 @@
 *.potx
 *.pdf
 /test-decks/
+__pycache__/
